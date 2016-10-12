@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|  
   s.name             = "DZHTTPRequest"  
-  s.version          = "1.0.0"  
+  s.version          = "1.0.1"  
   s.summary          = "网络请求私有库"   
   s.homepage         = "https://github.com/hatjs880328/DZHTTPRequest"   
   s.license          = 'MIT'  
