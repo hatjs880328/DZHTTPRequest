@@ -66,55 +66,53 @@ public class HTTPRequestWithAlamofire: NSObject {
             if statue != ReachabilityStatus.RealStatusNotReachable {
                 self.AlamofireRequestwithSuccessAndErrorClosure(self.alertinfoShouldShow, viewcontroller: self.viewcontroller, url: self.url, params: self.params, header: self.header, successAction: HTTPRequestSuccessAction[self.hashValue]!, errorAction: HTTPRequestErrorAction[self.hashValue]!)
             }else{
-                //一次PING失败会发起第二次ping，两次PING连续失败的几率可以忽略
-                RealReachability.sharedInstance().reachabilityWithBlock { (statue) -> Void in
-                    if statue != ReachabilityStatus.RealStatusNotReachable {
-                        self.AlamofireRequestwithSuccessAndErrorClosure(self.alertinfoShouldShow, viewcontroller: self.viewcontroller, url: self.url, params: self.params, header: self.header, successAction: HTTPRequestSuccessAction[self.hashValue]!, errorAction: HTTPRequestErrorAction[self.hashValue]!)
-                    }else{
-                        NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.networkCannotuse,ifcanshow: self.alertinfoShouldShow,errormsg:"",errorAction:HTTPRequestErrorAction[self.hashValue]!)
+                //一次PING失败会发起第二次ping，两次PING连续失败的几率可以忽略<这里需要放到主线程中操作，因为有可能是主线程操作！>
+                dispatch_after(1, dispatch_get_main_queue(), { () -> Void in
+                    RealReachability.sharedInstance().reachabilityWithBlock { (statue) -> Void in
+                        if statue != ReachabilityStatus.RealStatusNotReachable {
+                            self.AlamofireRequestwithSuccessAndErrorClosure(self.alertinfoShouldShow, viewcontroller: self.viewcontroller, url: self.url, params: self.params, header: self.header, successAction: HTTPRequestSuccessAction[self.hashValue]!, errorAction: HTTPRequestErrorAction[self.hashValue]!)
+                        }else{
+                            NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.networkCannotuse,ifcanshow: self.alertinfoShouldShow,errormsg:"",errorAction:HTTPRequestErrorAction[self.hashValue]!)
+                        }
                     }
-                }
+                })
             }
         }
     }
     
     //MARK:真正的网络请求方法
     /**
-     网络请求，包含成功、失败两个闭包
-     
-     - parameter url:           请求URL
-     - parameter params:        参数列表
-     - parameter successAction: 成功闭包
-     - parameter errorAction:   失败闭包
-     */
-    private func AlamofireRequestwithSuccessAndErrorClosure(alertinfoShouleShow:HTTPERRORInfoShow = HTTPERRORInfoShow.shouldShow,viewcontroller:UIViewController?,url:String,var params:[String:AnyObject]?,header:[String : String]?,successAction:(response:ResponseClass)->Void,errorAction:(errorType:ERRORMsgType)->Void) {
+    网络请求，包含成功、失败两个闭包
+    
+    - parameter url:           请求URL
+    - parameter params:        参数列表
+    - parameter successAction: 成功闭包
+    - parameter errorAction:   失败闭包
+    */
+    private func AlamofireRequestwithSuccessAndErrorClosure(alertinfoShouleShow:HTTPERRORInfoShow = HTTPERRORInfoShow.shouldShow,viewcontroller:UIViewController?,url:String, params:[String:AnyObject]?,header:[String : String]?,successAction:(response:ResponseClass)->Void,errorAction:(errorType:ERRORMsgType)->Void) {
         //在参数列表中添加全局变量
-        if params != nil {
-            params!["CusToken"] = (NSUserDefaults.standardUserDefaults().objectForKey("CusToken") as! String)
-            params!["AppID"] = GLOBAL_THIS_APPID
-        }else{
-            params = ["CusToken":(NSUserDefaults.standardUserDefaults().objectForKey("CusToken") as! String),"AppID":GLOBAL_THIS_APPID]
-        }
-        Alamofire.request(.POST, url, parameters: params!, encoding: ParameterEncoding.JSON, headers: header).responseData { (response) -> Void in
-            if nil == response.data {
-                //返回数据为nil，在这里处理，不需要返回每个页面处理，进行ALERT即可 [ 非20x 返回值，应当查看Response的确切说明！]
-                NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.responseError, ifcanshow: alertinfoShouleShow,errormsg:"",errorAction:errorAction)
-                return
-            }
-            do {
-                let changeData = try NSJSONSerialization.JSONObjectWithData(response.data!, options: NSJSONReadingOptions.MutableContainers)
-                if changeData.isKindOfClass(NSDictionary) {
-                    successAction(response: ResponseFactoary().responseInstance(ResponseType.DIC,data: changeData as! NSDictionary,alertinfoshouldshow: alertinfoShouleShow,errorAction:errorAction))
+        dispatch_async(dispatch_get_main_queue()) { () -> Void in
+            Alamofire.request(.POST, url, parameters: params!, encoding: ParameterEncoding.JSON, headers: header).responseData { (response) -> Void in
+                if nil == response.data {
+                    //返回数据为nil，在这里处理，不需要返回每个页面处理，进行ALERT即可 [ 非20x 返回值，应当查看Response的确切说明！]
+                    NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.responseError, ifcanshow: alertinfoShouleShow,errormsg:"",errorAction:errorAction)
+                    return
                 }
-                if changeData.isKindOfClass(NSArray) {
-                    successAction(response: ResponseFactoary().responseInstance(ResponseType.ARRAY,data: changeData as! NSArray,alertinfoshouldshow: alertinfoShouleShow,errorAction:errorAction))
+                do {
+                    let changeData = try NSJSONSerialization.JSONObjectWithData(response.data!, options: NSJSONReadingOptions.MutableContainers)
+                    if changeData.isKindOfClass(NSDictionary) {
+                        successAction(response: ResponseFactoary().responseInstance(ResponseType.DIC,data: changeData as! NSDictionary,alertinfoshouldshow: alertinfoShouleShow,errorAction:errorAction))
+                    }
+                    if changeData.isKindOfClass(NSArray) {
+                        successAction(response: ResponseFactoary().responseInstance(ResponseType.ARRAY,data: changeData as! NSArray,alertinfoshouldshow: alertinfoShouleShow,errorAction:errorAction))
+                    }
+                    if changeData.isKindOfClass(NSString) {
+                        successAction(response: ResponseFactoary().responseInstance(ResponseType.STRING,data: changeData as! String,alertinfoshouldshow: alertinfoShouleShow,errorAction:errorAction))
+                    }
+                }catch let error as NSError{
+                    //转换数据失败，多为JSON字符问题，可发送到 http://www.bejson.com/ 进行校验，analyze
+                    NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.progressError,ifcanshow: alertinfoShouleShow,errormsg: "\(error)",errorAction:errorAction)
                 }
-                if changeData.isKindOfClass(NSString) {
-                    successAction(response: ResponseFactoary().responseInstance(ResponseType.STRING,data: changeData as! String,alertinfoshouldshow: alertinfoShouleShow,errorAction:errorAction))
-                }
-            }catch let error as NSError{
-                //转换数据失败，多为JSON字符问题，可发送到 http://www.bejson.com/ 进行校验，analyze
-                NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.progressError,ifcanshow: alertinfoShouleShow,errormsg: "\(error)",errorAction:errorAction)
             }
         }
     }
