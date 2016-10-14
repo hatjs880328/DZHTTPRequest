@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|  
   s.name             = "DZHTTPRequest"  
-  s.version          = "1.0.1"  
+  s.version          = "1.0.2"  
   s.summary          = "网络请求私有库"   
   s.homepage         = "https://github.com/hatjs880328/DZHTTPRequest"   
   s.license          = 'MIT'  
@@ -13,8 +13,7 @@ Pod::Spec.new do |s|
   s.frameworks = 'Foundation','UIKit'
   s.dependencies = {
   'Alamofire' => ['3.1.5'],
-  'SnapKit' => ['0.19.1']
+  'SnapKit' => ['0.19.1'],
+  'RealReachability' => ['1.1.7']
   }
-
-  #pod 'SnapKit', '~> 0.19.1'
 end 

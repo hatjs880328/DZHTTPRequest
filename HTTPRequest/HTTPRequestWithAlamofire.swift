@@ -8,7 +8,7 @@
 
 import Foundation
 import Alamofire
-//import RealReachability
+import RealReachability
 
 /// 每个实例化网络请求的成功执行闭包
 var HTTPRequestSuccessAction: [Int : (response:ResponseClass)->Void] = [:]
@@ -60,6 +60,22 @@ public class HTTPRequestWithAlamofire: NSObject {
         HTTPRequestSuccessAction[self.hashValue] = successAction
         HTTPRequestErrorAction[self.hashValue] = errorAction
         //09.8 调用了新的PING功能
+        RealReachability.sharedInstance().hostForPing = "www.baidu.com"
+        RealReachability.sharedInstance().startNotifier()
+        RealReachability.sharedInstance().reachabilityWithBlock { (statue) -> Void in
+            if statue != ReachabilityStatus.RealStatusNotReachable {
+                self.AlamofireRequestwithSuccessAndErrorClosure(self.alertinfoShouldShow, viewcontroller: self.viewcontroller, url: self.url, params: self.params, header: self.header, successAction: HTTPRequestSuccessAction[self.hashValue]!, errorAction: HTTPRequestErrorAction[self.hashValue]!)
+            }else{
+                //一次PING失败会发起第二次ping，两次PING连续失败的几率可以忽略
+                RealReachability.sharedInstance().reachabilityWithBlock { (statue) -> Void in
+                    if statue != ReachabilityStatus.RealStatusNotReachable {
+                        self.AlamofireRequestwithSuccessAndErrorClosure(self.alertinfoShouldShow, viewcontroller: self.viewcontroller, url: self.url, params: self.params, header: self.header, successAction: HTTPRequestSuccessAction[self.hashValue]!, errorAction: HTTPRequestErrorAction[self.hashValue]!)
+                    }else{
+                        NETWORKErrorProgress().errorMsgProgress(ERRORMsgType.networkCannotuse,ifcanshow: self.alertinfoShouldShow,errormsg:"",errorAction:HTTPRequestErrorAction[self.hashValue]!)
+                    }
+                }
+            }
+        }
     }
     
     //MARK:真正的网络请求方法
